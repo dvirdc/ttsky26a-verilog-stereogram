@@ -3,29 +3,29 @@
 
 `default_nettype none
 
-// Raspberry Pi Camera → VGA Stereogram Engine
+// Raspberry Pi Camera → VGA Texture Stereogram Engine
 //
-// The chip generates a 640×480 SIRDS (autostereogram / Magic Eye) on a
-// VGA monitor, using a real-time 4-bit depth map streamed from a
-// Raspberry Pi over a simple parallel GPIO interface.
+// The chip generates a 640×480 texture SIRDS on a VGA monitor.
+// The repeating tile is the live grayscale camera image from a Pi;
+// depth shifts the tile period slightly so 3D pops out when viewed.
 //
 // ── Output ──────────────────────────────────────────────────────────
 //  uo_out  → TinyVGA PMOD (plug into VGA monitor)
 //    [0] R1  [1] G1  [2] B1  [3] VSYNC
 //    [4] R0  [5] G0  [6] B0  [7] HSYNC
 //
-// ── Depth input (from Raspberry Pi) ─────────────────────────────────
-//  ui_in[3:0]  4-bit depth, sampled on each rising pclk edge while
-//              active is high.  0 = background, 15 = foreground.
-//              Pi must drive these in pixel order, left-to-right then
-//              top-to-bottom, gated by the active and pclk signals
-//              exposed on uio_out.
+// ── Inputs from Raspberry Pi ────────────────────────────────────────
+//  ui_in[3:0]  4-bit depth (0=background/flat, 15=foreground/pop-out)
+//              Sampled on each rising pclk edge during active video.
+//  ui_in[5:4]  2-bit grayscale camera pixel (MSBs of 8-bit value).
+//              Used for seed region (x < 64); ignored elsewhere.
+//              Pi drives both simultaneously in pixel-scan order.
 //
 // ── Pi synchronisation outputs ──────────────────────────────────────
-//  uio_out[0]  pclk       25 MHz pixel clock (Pi samples depth on ↑)
-//  uio_out[1]  frame_start  1-cycle pulse at pixel (0,0) of every frame
-//  uio_out[2]  line_start   1-cycle pulse at first pixel of each row
-//  uio_out[3]  active       high during visible 640×480 area
+//  uio_out[0]  pclk        25 MHz pixel clock (Pi drives inputs on ↑)
+//  uio_out[1]  frame_start 1-cycle pulse at pixel (0,0) of every frame
+//  uio_out[2]  line_start  1-cycle pulse at first pixel of each row
+//  uio_out[3]  active      high during visible 640×480 area
 //  uio_oe[3:0] = 4'b1111 (all four are outputs)
 //
 // ── Clock ────────────────────────────────────────────────────────────
@@ -74,17 +74,17 @@ module tt_um_ttsky26a_stereogram (
     wire [5:0] pixel;
 
     stereogram_core #(
-        .SEED_W  (32),
-        .SEP_MAX (32),
-        .SEP_MIN (29)
+        .SEED_W  (64),
+        .SEP_MAX (64),
+        .SEP_MIN (57)
     ) stereo_inst (
         .pclk       (pclk),
         .rst_n      (rst_n),
         .active     (active),
         .line_start (line_start),
         .hcount     (hcount),
-        .vcount     (vcount[8:0]),
         .depth      (ui_in[3:0]),
+        .gray_in    (ui_in[5:4]),
         .pixel_out  (pixel)
     );
 
@@ -106,6 +106,6 @@ module tt_um_ttsky26a_stereogram (
     assign uio_out = {4'b0000, active, line_start, frame_start, pclk};
     assign uio_oe  = 8'b00001111;
 
-    wire _unused = &{ena, uio_in, 1'b0};
+    wire _unused = &{ena, uio_in, ui_in[7:6], 1'b0};
 
 endmodule
