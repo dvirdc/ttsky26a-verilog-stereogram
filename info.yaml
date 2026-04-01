@@ -1,52 +1,49 @@
 # Tiny Tapeout project information
 project:
-  title:        ""      # Project title
-  author:       ""      # Your name
-  discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  ""      # One line description of what your project does
-  language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
-  clock_hz:     0       # Clock frequency in Hz (or 0 if not applicable)
+  title:        "Raspberry Pi Camera VGA Stereogram Engine"
+  author:       "dvirdc"
+  discord:      ""
+  description:  "Reads a 4-bit depth map from a Raspberry Pi camera stream and outputs a real-time SIRDS autostereogram over VGA (640x480@60Hz, TinyVGA PMOD)"
+  language:     "Verilog"
+  clock_hz:     50000000   # 50 MHz system clock; 25 MHz pixel clock derived on-chip
 
-  # How many tiles your design occupies? A single tile is about 167x108 uM.
-  tiles: "1x1"          # Valid values: 1x1, 1x2, 2x2, 3x2, 4x2, 6x2 or 8x2
+  # 2x1 tile: comfortably fits 32x6-bit shift register + VGA counters + control
+  tiles: "2x1"
 
-  # Your top module name must start with "tt_um_". Make it unique by including your github username:
-  top_module:  "tt_um_example"
+  top_module:  "tt_um_ttsky26a_stereogram"
 
-  # List your project's source files here.
-  # Source files must be in ./src and you must list each source file separately, one per line.
-  # Don't forget to also update `PROJECT_SOURCES` in test/Makefile.
   source_files:
     - "project.v"
+    - "vga_sync.v"
+    - "stereogram_core.v"
 
-# The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
-# This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
+# Pin descriptions
 pinout:
-  # Inputs
-  ui[0]: ""
-  ui[1]: ""
-  ui[2]: ""
-  ui[3]: ""
+  # Inputs – depth map from Raspberry Pi (parallel, sampled at pixel clock)
+  ui[0]: "depth[0] – LSB of 4-bit depth from Pi (0=far, 15=near)"
+  ui[1]: "depth[1]"
+  ui[2]: "depth[2]"
+  ui[3]: "depth[3] – MSB of 4-bit depth from Pi"
   ui[4]: ""
   ui[5]: ""
   ui[6]: ""
   ui[7]: ""
 
-  # Outputs
-  uo[0]: ""
-  uo[1]: ""
-  uo[2]: ""
-  uo[3]: ""
-  uo[4]: ""
-  uo[5]: ""
-  uo[6]: ""
-  uo[7]: ""
+  # Outputs – TinyVGA PMOD (standard pinout)
+  uo[0]: "VGA R1 (red MSB)"
+  uo[1]: "VGA G1 (green MSB)"
+  uo[2]: "VGA B1 (blue MSB)"
+  uo[3]: "VGA VSYNC (active-low)"
+  uo[4]: "VGA R0 (red LSB)"
+  uo[5]: "VGA G0 (green LSB)"
+  uo[6]: "VGA B0 (blue LSB)"
+  uo[7]: "VGA HSYNC (active-low)"
 
-  # Bidirectional pins
-  uio[0]: ""
-  uio[1]: ""
-  uio[2]: ""
-  uio[3]: ""
+  # Bidirectional – sync outputs to Raspberry Pi
+  uio[0]: "pclk_out – 25 MHz pixel clock; Pi drives depth on each rising edge"
+  uio[1]: "frame_start – 1-cycle pulse at first pixel of every frame"
+  uio[2]: "line_start  – 1-cycle pulse at first pixel of each active row"
+  uio[3]: "active      – high during the 640x480 visible area"
   uio[4]: ""
   uio[5]: ""
   uio[6]: ""
